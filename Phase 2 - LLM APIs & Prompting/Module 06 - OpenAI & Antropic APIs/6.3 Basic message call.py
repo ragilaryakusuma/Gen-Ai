@@ -4,10 +4,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+# Dialihkan ke OpenRouter karena limit OpenAI habis
+client = OpenAI(
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1"
+)
 
 response = client.chat.completions.create(
-    model="gpt-4o",
+    model="openrouter/free",
     max_tokens=1024,
     messages=[
         {

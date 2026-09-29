@@ -1,0 +1,4 @@
+{
+    "workbench.colorTheme": "Visual Studio Light",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe"
+}

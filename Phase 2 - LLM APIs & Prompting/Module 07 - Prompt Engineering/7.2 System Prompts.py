@@ -1,10 +1,12 @@
-import anthropic, os
+import os
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = anthropic.Anthropic(
-    api_key=os.environ["ANTHROPIC_API_KEY"]
+client = OpenAI(
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1"
 )
 
 # Poor system prompt - vague, no constraints
@@ -25,6 +27,7 @@ Format:
 Return your review as a numbered list. Each item: Issue → Impact → Fix."""
 
 messages = [
+    {"role": "system", "content": STRONG_SYSTEM},
     {
         "role": "user",
         "content": """Review this function:
@@ -35,11 +38,10 @@ return result.json()"""
     }
 ]
 
-response = client.messages.create(
-    model="claude-sonnet-4-5",
+response = client.chat.completions.create(
+    model="openrouter/free",
     max_tokens=1024,
-    system=STRONG_SYSTEM,
     messages=messages,
 )
 
-print(response.content[0].text)
+print(response.choices[0].message.content)

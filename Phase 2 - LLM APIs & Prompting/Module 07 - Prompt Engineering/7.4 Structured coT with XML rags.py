@@ -1,10 +1,12 @@
-import anthropic, os, re
+import os, re
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = anthropic.Anthropic(
-    api_key=os.environ["ANTHROPIC_API_KEY"]
+client = OpenAI(
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1"
 )
 
 SYSTEM = """Solve problems using this exact format:
@@ -15,17 +17,19 @@ Step-by-step reasoning here.
 The final answer only, no reasoning.
 </answer>"""
 
-resp = client.messages.create(
-    model="claude-sonnet-4-5",
+resp = client.chat.completions.create(
+    model="openrouter/free",
     max_tokens=512,
-    system=SYSTEM,
-    messages=[{
-        "role": "user",
-        "content": "A RAG pipeline retrieves 5 documents, each 400 tokens. The query is 50 tokens. The model has a 4096 token limit for context. How many tokens remain for the response?"
-    }],
+    messages=[
+        {"role": "system", "content": SYSTEM},
+        {
+            "role": "user",
+            "content": "A RAG pipeline retrieves 5 documents, each 400 tokens. The query is 50 tokens. The model has a 4096 token limit for context. How many tokens remain for the response?"
+        }
+    ],
 )
 
-text = resp.content[0].text
+text = resp.choices[0].message.content
 
 # Extract sections
 thinking = re.search(

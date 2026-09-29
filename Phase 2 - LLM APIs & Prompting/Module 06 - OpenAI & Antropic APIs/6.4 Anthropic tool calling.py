@@ -1,26 +1,32 @@
-import anthropic, os, json
+import os, json
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = anthropic.Anthropic(
-    api_key=os.environ["ANTHROPIC_API_KEY"]
+# Menggunakan OpenRouter (format OpenAI) karena saldo Anthropic habis
+client = OpenAI(
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1"
 )
 
-# 1. Define the tool schema
+# 1. Define the tool schema (OpenAI format)
 tools = [
     {
-        "name": "get_model_info",
-        "description": "Returns context window size and cost per 1K tokens for a given LLM.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "model_name": {
-                    "type": "string",
-                    "description": "The model identifier, e.g. 'gpt-4o' or 'claude-sonnet-4-5'."
-                }
-            },
-            "required": ["model_name"]
+        "type": "function",
+        "function": {
+            "name": "get_model_info",
+            "description": "Returns context window size and cost per 1K tokens for a given LLM.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "model_name": {
+                        "type": "string",
+                        "description": "The model identifier, e.g. 'gpt-4o' or 'claude-sonnet-4-5'."
+                    }
+                },
+                "required": ["model_name"]
+            }
         }
     }
 ]
@@ -50,28 +56,25 @@ def get_model_info(model_name: str) -> dict:
         {"error": f"Unknown model: {model_name}"}
     )
 
-# 3. First API call - model may return a tool_use block
-response = client.messages.create(
-    model="claude-sonnet-4-5",
-    max_tokens=1024,
+messages=[
+    {
+        "role": "user",
+        "content": "How large is the context window of claude-sonnet-4-5?"
+    }
+]
+
+# 3. First API call
+response = client.chat.completions.create(
+    model="openrouter/free",
     tools=tools,
-    messages=[
-        {
-            "role": "user",
-            "content": "How large is the context window of claude-sonnet-4-5?"
-        }
-    ]
+    messages=messages
 )
 
 # 4. Check if model wants to use a tool
-if response.stop_reason == "tool_use":
-    tool_block = next(
-        b for b in response.content if b.type == "tool_use"
-    )
-
-    tool_name = tool_block.name
-    tool_input = tool_block.input
-    tool_use_id = tool_block.id
+if response.choices[0].finish_reason == "tool_calls":
+    tool_call = response.choices[0].message.tool_calls[0]
+    tool_name = tool_call.function.name
+    tool_input = json.loads(tool_call.function.arguments)
 
     # 5. Execute the function
     result = get_model_info(**tool_input)
@@ -80,31 +83,21 @@ if response.stop_reason == "tool_use":
     print(f"Tool result: {result}")
 
     # 6. Send tool result back to the model
-    final = client.messages.create(
-        model="claude-sonnet-4-5",
-        max_tokens=1024,
-        tools=tools,
-        messages=[
-            {
-                "role": "user",
-                "content": "How large is the context window of claude-sonnet-4-5?"
-            },
-            {
-                "role": "assistant",
-                "content": response.content
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": tool_use_id,
-                        "content": json.dumps(result)
-                    }
-                ]
-            }
-        ]
+    messages.append(response.choices[0].message)
+    messages.append({
+        "role": "tool",
+        "tool_call_id": tool_call.id,
+        "content": json.dumps(result)
+    })
+
+    final = client.chat.completions.create(
+        model="openrouter/free",
+        messages=messages,
+        tools=tools
     )
 
     print("\nFinal answer:")
-    print(final.content[0].text)
+    print(final.choices[0].message.content)
+else:
+    print("\nFinal answer:")
+    print(response.choices[0].message.content)

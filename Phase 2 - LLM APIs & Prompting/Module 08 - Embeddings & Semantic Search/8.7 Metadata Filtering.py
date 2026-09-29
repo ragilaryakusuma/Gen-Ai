@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 openai_client = OpenAI(
-    api_key=os.environ["OPENAI_API_KEY"]
+    api_key=os.environ.get("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
 )
 
 
@@ -31,7 +32,7 @@ def embed_texts(
 
     resp = openai_client.embeddings.create(
         input=texts,
-        model="text-embedding-3-small"
+        model="openai/text-embedding-3-small"
     )
 
     vecs = np.array(
@@ -187,39 +188,42 @@ docs = [
 ]
 
 
-fstore = FilteredVectorStore()
+try:
+    fstore = FilteredVectorStore()
 
-fstore.add(
-    docs
-)
-
-
-# Search across all docs
-print("=== All docs ===")
-
-results = fstore.search(
-    "which model is good at coding?",
-    k=3
-)
-
-for doc, score in results:
-    print(
-        f" [{score:.4f}] {doc.id}: {doc.text}"
+    fstore.add(
+        docs
     )
 
+    # Search across all docs
+    print("=== All docs ===")
 
-# Search only Anthropic docs
-print("\n=== Anthropic only ===")
-
-results = fstore.search(
-    "which model is good at coding?",
-    k=3,
-    filter_fn=lambda d: (
-        d.metadata["category"] == "anthropic"
+    results = fstore.search(
+        "which model is good at coding?",
+        k=3
     )
-)
 
-for doc, score in results:
-    print(
-        f" [{score:.4f}] {doc.id}: {doc.text}"
+    for doc, score in results:
+        print(
+            f" [{score:.4f}] {doc.id}: {doc.text}"
+        )
+
+    # Search only Anthropic docs
+    print("\n=== Anthropic only ===")
+
+    results = fstore.search(
+        "which model is good at coding?",
+        k=3,
+        filter_fn=lambda d: (
+            d.metadata["category"] == "anthropic"
+        )
     )
+
+    for doc, score in results:
+        print(
+            f" [{score:.4f}] {doc.id}: {doc.text}"
+        )
+
+except Exception as e:
+    print("\n[ERROR] Failed to run Metadata Filtering demo.")
+    print(f"Original Error: {str(e)}")

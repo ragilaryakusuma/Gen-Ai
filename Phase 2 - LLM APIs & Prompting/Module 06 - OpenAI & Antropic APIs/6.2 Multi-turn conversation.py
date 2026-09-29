@@ -4,14 +4,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Menggunakan OpenRouter sebagai jembatan
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=os.environ["OPENROUTER_API_KEY"]
 )
-model = os.environ["OPENROUTER_MODEL"]
 
 def chat(system: str) -> None:
-    """Simple interactive multi-turn chat loop."""
     history = []
 
     while True:
@@ -25,14 +24,13 @@ def chat(system: str) -> None:
             "content": user_input
         })
 
+        # Memanggil Claude lewat OpenRouter
         response = client.chat.completions.create(
-            model=model,
+            model="openrouter/free",
             messages=[
-                {
-                    "role": "system",
-                    "content": system
-                }
-            ] + history,
+                {"role": "system", "content": system},
+                *history
+            ]
         )
 
         assistant_text = response.choices[0].message.content
@@ -42,6 +40,6 @@ def chat(system: str) -> None:
             "content": assistant_text
         })
 
-        print(f"Qwen: {assistant_text}\n")
+        print(f"Claude: {assistant_text}\n")
 
 chat(system="You are a helpful Python tutor.")

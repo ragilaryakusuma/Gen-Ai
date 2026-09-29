@@ -18,7 +18,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 openai_client = OpenAI(
-    api_key=os.environ["OPENAI_API_KEY"]
+    api_key=os.environ.get("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
 )
 
 
@@ -38,7 +39,7 @@ class Document:
 
 def embed_texts(
     texts: list[str],
-    model: str = "text-embedding-3-small"
+    model: str = "openai/text-embedding-3-small"
 ) -> np.ndarray:
     """
     Embed a list of texts using OpenAI embeddings.
@@ -88,7 +89,7 @@ class DuplicateDetector:
     def __init__(
         self,
         threshold: float = 0.95,
-        model: str = "text-embedding-3-small"
+        model: str = "openai/text-embedding-3-small"
     ):
         self.threshold = threshold
         self.model = model
@@ -691,7 +692,7 @@ class VectorStore:
 
     def __init__(
         self,
-        model: str = "text-embedding-3-small"
+        model: str = "openai/text-embedding-3-small"
     ):
         self.model = model
         self.documents: list[Document] = []
@@ -959,7 +960,7 @@ def make_cache_key(
 
 def embed_with_cache(
     texts: list[str],
-    model: str = "text-embedding-3-small",
+    model: str = "openai/text-embedding-3-small",
     db_path: str = CACHE_DB
 ) -> np.ndarray:
     """
@@ -1037,7 +1038,7 @@ def embed_with_cache(
     if missing_texts:
 
         print(
-            f"Calling OpenAI API for "
+            f"Calling OpenRouter API for "
             f"{len(missing_texts)} new text(s)..."
         )
 
@@ -1156,18 +1157,23 @@ if __name__ == "__main__":
     print("MODULE 08 - EXERCISES 8.8")
     print("=" * 70)
 
-    # Exercise 1
-    run_duplicate_detector_demo()
+    try:
+        # Exercise 1
+        run_duplicate_detector_demo()
 
-    # Exercise 2
-    run_hybrid_search_demo()
+        # Exercise 2
+        run_hybrid_search_demo()
 
-    # Exercise 3
-    run_vector_store_demo()
+        # Exercise 3
+        run_vector_store_demo()
 
-    # Exercise 4
-    run_embedding_cache_demo()
+        # Exercise 4
+        run_embedding_cache_demo()
 
-    print("\n" + "=" * 70)
-    print("ALL MODULE 08 EXERCISES COMPLETED")
-    print("=" * 70)
+        print("\n" + "=" * 70)
+        print("ALL MODULE 08 EXERCISES COMPLETED")
+        print("=" * 70)
+
+    except Exception as e:
+        print(f"\n[ERROR] {str(e)}")
+        print("Ensure your OPENROUTER_API_KEY is valid and has sufficient credits.")

@@ -1,11 +1,19 @@
-import anthropic, os
+import os
+import sys
+import time
+from openai import OpenAI, RateLimitError
 from dotenv import load_dotenv
+
+if sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
 
 load_dotenv()
 
-client = anthropic.Anthropic(
-    api_key=os.environ["ANTHROPIC_API_KEY"]
+client = OpenAI(
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1"
 )
+MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
 
 # Without CoT - model jumps to answer, more likely to be wrong
 DIRECT_PROMPT = "If a model costs $3.00 per million input tokens and $15.00 per million output tokens, and a request uses 2,400 input tokens and 800 output tokens, what is the total cost in USD?"
@@ -28,12 +36,22 @@ for label, prompt in [
     ("CoT", COT_PROMPT),
     ("Zero-shot CoT", ZERO_SHOT_COT)
 ]:
-    resp = client.messages.create(
-        model="claude-sonnet-4-5",
-        max_tokens=512,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    print(f"==={label} ===")
-    print(resp.content[0].text[:300])
-    print()
+    for attempt in range(3):
+        try:
+            resp = client.chat.completions.create(
+                model=MODEL,
+                max_tokens=768,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            msg = resp.choices[0].message
+            content = msg.content or getattr(msg, "reasoning", "") or ""
+            print(f"=== {label} ===")
+            print(content.strip())
+            print()
+            break
+        except RateLimitError:
+            if attempt == 2:
+                raise
+            wait = 2 ** attempt
+            print(f"Rate limited on {label}. Retrying in {wait}s...")
+            time.sleep(wait)

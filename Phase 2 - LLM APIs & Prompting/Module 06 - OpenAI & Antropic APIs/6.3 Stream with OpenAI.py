@@ -4,10 +4,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+# Dialihkan ke OpenRouter karena limit OpenAI habis
+client = OpenAI(
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1"
+)
 
 stream = client.chat.completions.create(
-    model="gpt-4o",
+    model="openrouter/free",
     max_tokens=512,
     stream=True,
     messages=[
@@ -19,9 +23,11 @@ stream = client.chat.completions.create(
 )
 
 for chunk in stream:
-    delta = chunk.choices[0].delta.content
+    # Memastikan choices tidak kosong untuk menghindari IndexError
+    if len(chunk.choices) > 0:
+        delta = chunk.choices[0].delta.content
 
-    if delta:
-        print(delta, end="", flush=True)
+        if delta:
+            print(delta, end="", flush=True)
 
 print()

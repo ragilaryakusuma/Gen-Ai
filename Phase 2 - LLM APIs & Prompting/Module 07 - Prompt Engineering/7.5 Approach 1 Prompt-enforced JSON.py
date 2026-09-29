@@ -1,10 +1,12 @@
-import anthropic, os, json
+import os, json
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = anthropic.Anthropic(
-    api_key=os.environ["ANTHROPIC_API_KEY"]
+client = OpenAI(
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1"
 )
 
 SYSTEM = """You are a data extractor. Extract information and
@@ -25,24 +27,40 @@ texts = [
 ]
 
 def extract_company_info(text: str) -> dict:
-    resp = client.messages.create(
-        model="claude-sonnet-4-5",
-        max_tokens=256,
-        system=SYSTEM,
-        messages=[{"role": "user", "content": text}],
-    )
+    try:
+        resp = client.chat.completions.create(
+            model="openrouter/free",
+            max_tokens=256,
+            messages=[
+                {"role": "system", "content": SYSTEM},
+                {"role": "user", "content": text}
+            ],
+        )
 
-    raw = resp.content[0].text.strip()
+        # Cek jika OpenRouter merespons dengan format error yang tidak standar (NoneType choices)
+        if not hasattr(resp, 'choices') or not resp.choices:
+            return {"error": "OpenRouter API is down or rate-limited."}
 
-    # Strip any accidental markdown fences
-    raw = (
-        raw.removeprefix("```json")
-        .removeprefix("```")
-        .removesuffix("```")
-        .strip()
-    )
+        content = resp.choices[0].message.content
+        if content is None:
+            return {"error": "API returned an empty response (None)"}
 
-    return json.loads(raw)
+        raw = content.strip()
+
+        # Strip any accidental markdown fences
+        raw = (
+            raw.removeprefix("```json")
+            .removeprefix("```")
+            .removesuffix("```")
+            .strip()
+        )
+        
+        return json.loads(raw)
+        
+    except json.JSONDecodeError:
+        return {"error": "Failed to parse JSON", "raw": raw}
+    except Exception as e:
+        return {"error": f"Exception: {str(e)}"}
 
 
 for text in texts:

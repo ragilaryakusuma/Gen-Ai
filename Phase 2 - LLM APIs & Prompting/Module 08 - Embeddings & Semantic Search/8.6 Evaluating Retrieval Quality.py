@@ -154,8 +154,28 @@ eval_cases = [
 ]
 
 
-# metrics = evaluate_retrieval(store, eval_cases, k=3)
-# print(metrics)
+import importlib.util
+import sys
+import os
 
-# Example output:
-# {'precision@3': 0.8, 'recall@3': 0.75, 'MRR': 0.9167}
+print("Loading VectorStore from 8.4 (this may take a few seconds)...")
+# Dynamically load the module because the filename has spaces
+# Use the same directory as this script so it works regardless of CWD
+script_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(script_dir, "8.4 Semantic Search - Full Pipeline.py")
+spec = importlib.util.spec_from_file_location("module_8_4", file_path)
+module_8_4 = importlib.util.module_from_spec(spec)
+sys.modules["module_8_4"] = module_8_4
+# This will execute 8.4 and populate the 'store'
+try:
+    spec.loader.exec_module(module_8_4)
+    store = module_8_4.store
+
+    print("\n--- Running Evaluation ---")
+    metrics = evaluate_retrieval(store, eval_cases, k=3)
+    print("\nEvaluation Results:")
+    print(metrics)
+
+except Exception as e:
+    print(f"\n[ERROR] Failed to load store from 8.4: {str(e)}")
+    print("Make sure 8.4 Semantic Search - Full Pipeline.py can run successfully first.")

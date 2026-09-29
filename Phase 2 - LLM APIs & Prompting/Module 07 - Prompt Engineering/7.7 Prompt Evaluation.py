@@ -1,11 +1,14 @@
 from dataclasses import dataclass
-import anthropic, os, json
+import os, json
+# pyrefly: ignore [missing-import]
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = anthropic.Anthropic(
-    api_key=os.environ["ANTHROPIC_API_KEY"]
+client = OpenAI(
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1"
 )
 
 
@@ -21,14 +24,24 @@ def evaluate_prompt(system: str, cases: list[EvalCase]) -> dict:
     results = []
 
     for case in cases:
-        resp = client.messages.create(
-            model="claude-sonnet-4-5",
-            max_tokens=256,
-            system=system,
-            messages=[{"role": "user", "content": case.input_text}],
-        )
-
-        text = resp.content[0].text.strip()
+        try:
+            resp = client.chat.completions.create(
+                model="openrouter/free",
+                max_tokens=256,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": case.input_text}
+                ],
+            )
+            
+            if not hasattr(resp, 'choices') or not resp.choices:
+                text = "ERROR: API returned empty choices (OpenRouter down/rate-limited)"
+            else:
+                content = resp.choices[0].message.content
+                text = content.strip() if content else "ERROR: Empty content"
+                
+        except Exception as e:
+            text = f"ERROR: Exception {str(e)}"
 
         # Check keyword hit
         keyword_hit = any(

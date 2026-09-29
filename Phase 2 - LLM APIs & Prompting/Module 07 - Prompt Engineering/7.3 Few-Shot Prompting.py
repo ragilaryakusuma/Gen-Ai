@@ -1,11 +1,15 @@
-import anthropic, os
+import os
+import time
+from openai import OpenAI, RateLimitError
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = anthropic.Anthropic(
-    api_key=os.environ["ANTHROPIC_API_KEY"]
+client = OpenAI(
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1"
 )
+MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
 
 FEW_SHOT_SYSTEM = """You are a data extractor. Given a raw AI
 benchmark result string,
@@ -28,13 +32,34 @@ test_inputs = [
     "Claude Opus 4.5 scored 96.7% on SWE-bench Verified",
 ]
 
+def create_completion(text: str, max_retries: int = 3):
+    """Retry transient OpenRouter provider rate limits with backoff."""
+    messages = [
+        {"role": "system", "content": FEW_SHOT_SYSTEM},
+        {"role": "user", "content": text},
+    ]
+
+    for attempt in range(max_retries):
+        try:
+            return client.chat.completions.create(
+                model=MODEL,
+                max_tokens=128,
+                messages=messages,
+            )
+        except RateLimitError:
+            if attempt == max_retries - 1:
+                raise
+
+            wait_seconds = 2 ** attempt
+            print(
+                f"Rate limited for model {MODEL}. "
+                f"Retrying in {wait_seconds}s..."
+            )
+            time.sleep(wait_seconds)
+
+
 for text in test_inputs:
-    resp = client.messages.create(
-        model="claude-sonnet-4-5",
-        max_tokens=128,
-        system=FEW_SHOT_SYSTEM,
-        messages=[{"role": "user", "content": text}],
-    )
+    resp = create_completion(text)
 
     print(f"Input:{text}")
-    print(f"Output:{resp.content[0].text}\n")
+    print(f"Output:{resp.choices[0].message.content}\n")

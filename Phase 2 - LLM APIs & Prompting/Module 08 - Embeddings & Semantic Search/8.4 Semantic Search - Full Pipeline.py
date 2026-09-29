@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 openai_client = OpenAI(
-    api_key=os.environ["OPENAI_API_KEY"]
+    api_key=os.environ.get("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
 )
 
 
@@ -36,7 +37,7 @@ class SearchResult:
 
 def embed_batch(
     texts: list[str],
-    model: str = "text-embedding-3-small"
+    model: str = "openai/text-embedding-3-small"
 ) -> np.ndarray:
     """Embed texts in a single API call. Returns (n, dim) float32 array."""
 
@@ -68,7 +69,7 @@ class VectorStore:
 
     def __init__(
         self,
-        embed_model: str = "text-embedding-3-small"
+        embed_model: str = "openai/text-embedding-3-small"
     ):
         self.embed_model = embed_model
         self._documents: list[Document] = []
@@ -225,35 +226,39 @@ CORPUS = [
 ]
 
 
-store = VectorStore()
+try:
+    store = VectorStore()
 
-store.add_documents(
-    CORPUS
-)
-
-
-QUERIES = [
-    "How does RAG work?",
-    "What algorithms do vector databases use?",
-    "How do I split documents for embedding?",
-]
-
-
-for query in QUERIES:
-
-    print(
-        f"\nQuery: {query!r}"
+    store.add_documents(
+        CORPUS
     )
 
-    results = store.search(
-        query,
-        k=3
-    )
+    QUERIES = [
+        "How does RAG work?",
+        "What algorithms do vector databases use?",
+        "How do I split documents for embedding?",
+    ]
 
-    for r in results:
+    for query in QUERIES:
 
         print(
-            f" [{r.rank}] "
-            f"score={r.score:.4f} | "
-            f"{r.document.text[:80]}..."
+            f"\nQuery: {query!r}"
         )
+
+        results = store.search(
+            query,
+            k=3
+        )
+
+        for r in results:
+
+            print(
+                f" [{r.rank}] "
+                f"score={r.score:.4f} | "
+                f"{r.document.text[:80]}..."
+            )
+
+except Exception as e:
+    print("\n[ERROR] Failed to run Semantic Search Pipeline.")
+    print("If you are using OpenRouter with an OpenAI model, ensure you have sufficient credits.")
+    print(f"Original Error: {str(e)}")
